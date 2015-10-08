@@ -1,0 +1,95 @@
+#!/usr/bin/env node
+
+var fs = require('fs');
+var path = require('path');
+var spawnSync = require('child_process').spawnSync;
+var commander = require('commander');
+var argv = require('yargs')
+           .alias('l','log')
+           .argv;
+var log = require('npmlog');
+var mkdirp = require('mkdirp');
+var brickVersion = require('./package.json').version;
+var brick = {};
+brick.log = log;
+brick.log.level = argv.log === true ? 'silly': argv.log == undefined ? 'silent':argv.log;
+brick.commander = commander;
+
+dirInit();
+cli();
+
+
+function dirInit(){
+  var userHome = process.env['HOME'];
+  var brickHome = path.join(userHome, '.brick');
+  try {
+    var homeStats = fs.statSync(brickHome);
+  }catch(e) {
+    if(e.message.indexOf('ENOENT') >= 0) {
+      brick.log.verbose('Brick home directory dosen\'t exist. mkdir a home directory at ' + brickHome);
+      mkdirp.sync(brickHome);
+      brick.log.verbose('Home directory init completely.');
+    }
+  }
+  process.env['BRICK_HOME'] = brickHome;
+}
+function install(modules){
+  var brickHome = process.env['BRICK_HOME'];
+  brick.log.info('install '+ modules.join(' ') +' start');
+  // spawnSync('ls',[],{stdio:'inherit',cwd:brickHome});
+  spawnSync('npm',['install'].concat(modules),{
+    cwd: brickHome,
+    stdio: 'inherit'
+  })
+  brick.log.info('install '+ modules.join(' ') +' complate');
+
+}
+function configInit(){
+  var configStat = fs.statSync(brick.home + 'brick.json');
+}
+function cli(){
+  commander
+  .version(brickVersion)
+
+
+
+  commander
+  .command('install [module...]')
+  .description('install a brick module')
+  .action(function(modules){
+    if(modules.length == 0) {
+      return;
+    }
+    var reg = /^brick-/;
+    var moduleNames = ''
+    modules = modules.map(function(moduleName,index){
+      return moduleName.match(reg) ? moduleName:'brick-'+moduleName;
+    })
+    moduleNames = modules.join(' ');
+    brick.log.verbose('install: ' + moduleNames);
+    install(modules);
+  })
+  commander
+    .command('dev')
+    .description('development')
+    .action(function(){
+      console.log('dev action');
+    });
+  commander.option('-l, --log [type]','see log')
+
+
+  commander.parse(process.argv);
+
+ 
+  // if(commander.log && brick.log) {
+  //   brick.log.level = commander.log === true ? 'silly':commander.log;
+  // }
+  
+  if(process.argv[2] == undefined) {  
+    commander.help();
+  }
+
+}
+
+
+
